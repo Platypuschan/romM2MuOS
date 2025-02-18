@@ -3,7 +3,7 @@
 # writes a description text file, and downloads a boxart image for each entry.
 
 # Set your base folder here
-BASEFOLDER="/path/to/basefolder"
+BASEFOLDER="/mnt/mmc/MUOS/info"
 
 # Define the mapping from platform_slug to folder name
 declare -A platform_mapping=(
