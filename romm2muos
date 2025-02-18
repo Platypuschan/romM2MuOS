@@ -1,0 +1,81 @@
+#!/bin/bash
+# This script downloads a JSON list of ROM entries, checks/creates folders,
+# writes a description text file, and downloads a boxart image for each entry.
+
+# Set your base folder here
+BASEFOLDER="/path/to/basefolder"
+
+# Define the mapping from platform_slug to folder name
+declare -A platform_mapping=(
+    ["arcade"]="Arcade"
+    ["dos"]="DOS"
+    ["nds"]="Nintendo DS"
+    ["gb"]="Nintendo Game Boy"
+    ["gba"]="Nintendo Game Boy Advance"
+    ["gbc"]="Nintendo Game Boy Color"
+    ["n64"]="Nintendo N64"
+    ["nes"]="Nintendo NES-Famicom"
+    ["snes"]="Nintendo SNES-SFC"
+    ["dc"]="Sega Dreamcast"
+    ["gamegear"]="Sega Game Gear"
+    ["sms"]="Sega Master System"
+    ["segacd"]="Sega Mega CD - Sega CD"
+    ["genesis-slash-megadrive"]="Sega Mega Drive - Genesis"
+    ["sega-pico"]="Sega Pico"
+    ["saturn"]="Sega Saturn"
+    ["ps"]="Sony PlayStation"
+    ["psp"]="Sony Playstation Portable"
+)
+
+# Retrieve JSON data using curl.
+# The JSON is expected to be an array of objects containing:
+# id, platform_slug, file_name_no_ext, summary, and path_cover_s.
+json_data=$(curl -s -X 'GET' 'http://<yourromminstance>/api/roms?order_by=id&order_dir=asc' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Basic <redacted>')
+
+# Process each entry using jq.
+# The -c flag outputs each object on a single line.
+echo "$json_data" | jq -c '.[]' | while read -r entry; do
+    # Extract fields from the JSON entry.
+    id=$(echo "$entry" | jq -r '.id')
+    platform_slug=$(echo "$entry" | jq -r '.platform_slug')
+    file_name_no_ext=$(echo "$entry" | jq -r '.file_name_no_ext')
+    summary=$(echo "$entry" | jq -r '.summary')
+    path_cover_s=$(echo "$entry" | jq -r '.path_cover_s')
+
+    # Map platform_slug to the corresponding folder name.
+    platform="${platform_mapping[$platform_slug]}"
+    if [ -z "$platform" ]; then
+        echo "Warning: No mapping found for platform_slug '$platform_slug' (ROM id: $id), skipping."
+        continue
+    fi
+
+    # Define required directories.
+    base_catalogue="$BASEFOLDER/catalogue/$platform"
+    dir_box="$base_catalogue/box"
+    dir_grid="$base_catalogue/grid"
+    dir_preview="$base_catalogue/preview"
+    dir_splash="$base_catalogue/splash"
+    dir_text="$base_catalogue/text"
+
+    # Create directories if they don't exist.
+    for dir in "$dir_box" "$dir_grid" "$dir_preview" "$dir_splash" "$dir_text"; do
+        if [ ! -d "$dir" ]; then
+            mkdir -p "$dir" || { echo "Error: Could not create directory $dir"; exit 1; }
+        fi
+    done
+
+    # Write the description into a text file.
+    # The file is named after file_name_no_ext (with .txt appended) and stored in the text folder.
+    text_file="$dir_text/${file_name_no_ext}.txt"
+    echo "$summary" > "$text_file"
+
+    # Download the boxart image.
+    # The URL is constructed using the path_cover_s field.
+    image_url="http://192.168.178.38:8080/assets/romm/resources/$path_cover_s"
+    image_file="$dir_box/${file_name_no_ext}.png"
+    curl -s -o "$image_file" "$image_url"
+
+    echo "Processed ROM id $id for platform '$platform'"
+done
