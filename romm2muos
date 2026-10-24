@@ -5,6 +5,10 @@
 # Set your base folder here
 BASEFOLDER="/mnt/mmc/MUOS/info"
 
+# Set your RomM instance here (or export ROMM_URL / ROMM_AUTH before running)
+ROMM_URL="${ROMM_URL:-http://<yourromminstance>}"
+ROMM_AUTH="${ROMM_AUTH:-<base64 user:password>}"
+
 # Define the mapping from platform_slug to folder name
 declare -A platform_mapping=(
     ["arcade"]="Arcade"
@@ -30,9 +34,9 @@ declare -A platform_mapping=(
 # Retrieve JSON data using curl.
 # The JSON is expected to be an array of objects containing:
 # id, platform_slug, file_name_no_ext, summary, and path_cover_s.
-json_data=$(curl -s -X 'GET' 'http://<yourromminstance>/api/roms?order_by=id&order_dir=asc' \
+json_data=$(curl -s -X 'GET' "$ROMM_URL/api/roms?order_by=id&order_dir=asc" \
   -H 'accept: application/json' \
-  -H 'Authorization: Basic <redacted>')
+  -H "Authorization: Basic $ROMM_AUTH")
 
 # Process each entry using jq.
 # The -c flag outputs each object on a single line.
@@ -73,7 +77,7 @@ echo "$json_data" | jq -c '.[]' | while read -r entry; do
 
     # Download the boxart image.
     # The URL is constructed using the path_cover_s field.
-    image_url="http://<yourromminstance>/assets/romm/resources/$path_cover_s"
+    image_url="$ROMM_URL/assets/romm/resources/$path_cover_s"
     image_file="$dir_box/${file_name_no_ext}.png"
     curl -s -o "$image_file" "$image_url"
 
